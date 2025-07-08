@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오프라인 - URL Safety Checker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .offline-container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 60px 40px;
+      max-width: 500px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    }
+    
+    .offline-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 30px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .offline-title {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+      background: linear-gradient(45deg, #fff, #f0f0f0);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .offline-message {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+    
+    .offline-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+    
+    .retry-button {
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .retry-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .retry-button:active {
+      transform: translateY(0);
+    }
+    
+    .offline-features {
+      margin-top: 40px;
+      text-align: left;
+    }
+    
+    .offline-features h3 {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    
+    .offline-features ul {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .offline-features li {
+      padding: 8px 0;
+      padding-left: 30px;
+      position: relative;
+      opacity: 0.8;
+    }
+    
+    .offline-features li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #4ade80;
+      font-weight: bold;
+    }
+    
+    .network-status {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    
+    .online-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background: #ef4444;
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+    
+    .online-indicator.connected {
+      background: #4ade80;
+      animation: none;
+    }
+    
+    @media (max-width: 600px) {
+      .offline-container {
+        padding: 40px 20px;
+      }
+      
+      .offline-title {
+        font-size: 1.5rem;
+      }
+      
+      .offline-message {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-container">
+    <div class="offline-icon">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        <path d="M6 18L18 6M6 6l12 12" stroke="#ef4444" stroke-width="3"/>
+      </svg>
+    </div>
+    
+    <h1 class="offline-title">연결이 끊어졌습니다</h1>
+    
+    <p class="offline-message">
+      인터넷 연결을 확인할 수 없습니다.<br>
+      네트워크 상태를 확인하고 다시 시도해주세요.
+    </p>
+    
+    <div class="offline-actions">
+      <button class="retry-button" onclick="retryConnection()">
+        🔄 다시 연결
+      </button>
+    </div>
+    
+    <div class="network-status">
+      <span class="online-indicator" id="connectionStatus"></span>
+      <span id="connectionText">연결 상태 확인 중...</span>
+    </div>
+    
+    <div class="offline-features">
+      <h3>오프라인에서도 가능한 기능</h3>
+      <ul>
+        <li>이전 검사 결과 확인</li>
+        <li>북마크된 사이트 목록 보기</li>
+        <li>도움말 및 가이드 읽기</li>
+        <li>오프라인 상태에서 URL 입력 준비</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // 연결 상태 모니터링
+    function updateConnectionStatus() {
+      const indicator = document.getElementById('connectionStatus');
+      const text = document.getElementById('connectionText');
+      
+      if (navigator.onLine) {
+        indicator.classList.add('connected');
+        text.textContent = '온라인 상태 - 페이지를 새로고침하세요';
+      } else {
+        indicator.classList.remove('connected');
+        text.textContent = '오프라인 상태';
+      }
+    }
+    
+    // 재연결 시도
+    function retryConnection() {
+      if (navigator.onLine) {
+        window.location.reload();
+      } else {
+        // 연결 상태 체크
+        fetch('/api/health-check', { 
+          method: 'HEAD',
+          cache: 'no-cache' 
+        })
+        .then(() => {
+          window.location.reload();
+        })
+        .catch(() => {
+          alert('아직 인터넷에 연결되어 있지 않습니다. 잠시 후 다시 시도해주세요.');
+        });
+      }
+    }
+    
+    // 이벤트 리스너
+    window.addEventListener('online', () => {
+      updateConnectionStatus();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    });
+    
+    window.addEventListener('offline', updateConnectionStatus);
+    
+    // 초기 상태 설정
+    updateConnectionStatus();
+    
+    // 주기적으로 연결 상태 확인 (10초마다)
+    setInterval(() => {
+      if (navigator.onLine) {
+        fetch('/api/health-check', { 
+          method: 'HEAD',
+          cache: 'no-cache',
+          timeout: 5000 
+        })
+        .then(() => {
+          window.location.reload();
+        })
+        .catch(() => {
+          // 네트워크는 연결되어 있지만 서버에 접근할 수 없음
+        });
+      }
+    }, 10000);
+    
+    // 키보드 단축키 (R키로 새로고침)
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'r' || event.key === 'R') {
+        retryConnection();
+      }
+    });
+    
+    // PWA 특수 기능
+    if ('serviceWorker' in navigator) {
+      // 서비스 워커에서 온라인 상태가 복구되었을 때 알림 받기
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'ONLINE_STATUS_CHANGED') {
+          updateConnectionStatus();
+        }
+      });
+    }
+  </script>
+</body>
+</html>

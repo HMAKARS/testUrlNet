@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  
+  <!-- 메인 페이지 -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- 도움말 페이지 -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/help</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- 개인정보처리방침 -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/privacy</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- 이용약관 -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/terms</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- 문의하기 -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/contact</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+  <!-- 소개 페이지 -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/about</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+  <!-- 블로그/가이드 (향후 추가 예정) -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/guide</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- FAQ -->
+  <url>
+    <loc>https://url-safety-checker.vercel.app/faq</loc>
+    <lastmod>2024-07-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+</urlset>

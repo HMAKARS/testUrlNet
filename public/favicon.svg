@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- 방패 배경 -->
+  <path d="M16 2 L26 8 L26 16 C26 22 22 28 16 30 C10 28 6 22 6 16 L6 8 Z" fill="url(#grad)" stroke="#fff" stroke-width="0.5"/>
+  
+  <!-- 체크마크 -->
+  <path d="M12 16 L15 19 L22 12" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- 작은 자물쇠 아이콘 -->
+  <rect x="20" y="22" width="8" height="6" rx="1" fill="#fff" opacity="0.9"/>
+  <path d="M22 22 V20 C22 19 23 18 24 18 C25 18 26 19 26 20 V22" stroke="#667eea" stroke-width="1" fill="none"/>
+</svg>
