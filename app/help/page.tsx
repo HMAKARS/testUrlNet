@@ -161,7 +161,7 @@ export default function HelpPage() {
         <h2 className="text-2xl font-bold mb-6">고급 기능</h2>
         
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-4">
+          {/* <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <QrCode className="w-5 h-5 text-blue-600" />
               <h3 className="font-semibold">QR 코드 스캔</h3>
@@ -169,7 +169,7 @@ export default function HelpPage() {
             <p className="text-gray-600 text-sm">
               카메라나 이미지 파일을 통해 QR 코드를 스캔하여 URL을 자동으로 입력할 수 있습니다.
             </p>
-          </div>
+          </div> */}
           
           <div className="space-y-4">
             <div className="flex items-center space-x-3">

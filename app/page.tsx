@@ -254,24 +254,7 @@ export default function Home() {
                 )}
               </button>
             </div>
-            
-            {/* 추가 기능 버튼들 */}
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {/* TODO: QR 코드 스캔 기능 */}}
-                className="text-sm text-gray-600 hover:text-gray-800 flex items-center"
-              >
-                <QrCode className="w-4 h-4 mr-1" />
-                QR 코드 스캔
-              </button>
-              <button
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-sm text-gray-600 hover:text-gray-800 flex items-center"
-              >
-                <FileText className="w-4 h-4 mr-1" />
-                고급 설정
-              </button>
-            </div>
+          
           </div>
           
           {error && (

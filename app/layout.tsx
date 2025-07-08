@@ -83,7 +83,7 @@ export default function RootLayout({
         {/* 푸터 */}
         <footer className="mt-16 border-t border-white/20 bg-white/50 backdrop-blur-sm">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div className="col-span-1 md:col-span-2">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-white">
@@ -121,7 +121,7 @@ export default function RootLayout({
                   <li>• 정기 보안 업데이트</li>
                 </ul>
               </div>
-            </div>
+            </div> */}
             
             {/* <div className="mt-8 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center">
               <p className="text-xs text-gray-500">
