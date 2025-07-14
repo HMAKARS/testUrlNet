@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Shield, ExternalLink, AlertTriangle, Monitor, Lock, X } from 'lucide-react'
-import { sandboxProviders } from '@/lib/sandbox-providers'
+import { Shield, ExternalLink, AlertTriangle, Monitor, Lock, X, ChevronRight, CheckCircle, Search, Globe, Camera, Computer } from 'lucide-react'
+import { sandboxProviders, localSolutions, browserExtensions } from '@/lib/sandbox-providers'
 
 interface SafeBrowseModalProps {
   url: string
@@ -11,24 +11,18 @@ interface SafeBrowseModalProps {
 }
 
 export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseModalProps) {
-  const [mode, setMode] = useState<'screenshot' | 'isolated' | 'direct'>('screenshot')
+  const [mode, setMode] = useState<'screenshot' | 'isolated' | 'direct'>('isolated')
   const [loading, setLoading] = useState(false)
   const [screenshot, setScreenshot] = useState<string | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
+  const [showLocalSolutions, setShowLocalSolutions] = useState(false)
 
   const captureScreenshot = async () => {
     setLoading(true)
     try {
-      // 실제 구현 시 스크린샷 API 호출
-      const response = await fetch('/api/screenshot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setScreenshot(data.screenshot)
-      }
+      // Thum.io를 사용한 스크린샷
+      const screenshotUrl = `https://image.thum.io/get/${encodeURIComponent(url)}`
+      setScreenshot(screenshotUrl)
     } catch (error) {
       console.error('Screenshot failed:', error)
     } finally {
@@ -36,22 +30,60 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
     }
   }
 
-  const openInSandbox = () => {
-    // 기본 제공자 (추천) 선택
-    const provider = sandboxProviders.find(p => p.name === 'browserling') || sandboxProviders[0]
-    const sandboxUrl = `${provider.url}${encodeURIComponent(url)}`
-    window.open(sandboxUrl, '_blank', 'noopener,noreferrer')
+  const openInSandbox = (providerName: string) => {
+    const provider = sandboxProviders.find(p => p.name === providerName)
+    if (provider) {
+      let sandboxUrl = provider.url
+      
+      // URL 처리 방식이 다른 서비스들 처리
+      if (provider.name === 'urlscan') {
+        sandboxUrl = `${provider.url}${encodeURIComponent(url)}`
+      } else if (provider.name === 'virustotal') {
+        sandboxUrl = provider.url
+        // VirusTotal은 수동으로 URL을 입력해야 함
+        alert('VirusTotal 페이지가 열립니다. URL 입력란에 검사할 주소를 붙여넣으세요.')
+      } else if (provider.name === 'croxyproxy' || provider.name === 'hideme') {
+        // 프록시 서비스는 메인 페이지로 이동
+        alert('프록시 페이지가 열립니다. URL 입력란에 검사할 주소를 입력하세요.')
+      } else if (provider.name === 'thum.io') {
+        sandboxUrl = `${provider.url}${encodeURIComponent(url)}`
+      } else if (provider.name === 'browserling') {
+        sandboxUrl = `${provider.url}${encodeURIComponent(url)}`
+      }
+      
+      window.open(sandboxUrl, '_blank', 'noopener,noreferrer')
+      onClose()
+    }
   }
 
   const openDirectly = () => {
     if (confirm('정말로 이 사이트를 직접 방문하시겠습니까? 위험할 수 있습니다.')) {
       window.open(url, '_blank', 'noopener,noreferrer')
+      onClose()
     }
+  }
+
+  const getProviderIcon = (type: string) => {
+    switch (type) {
+      case 'analysis': return <Search className="w-4 h-4" />
+      case 'proxy': return <Globe className="w-4 h-4" />
+      case 'screenshot': return <Camera className="w-4 h-4" />
+      case 'sandbox': return <Computer className="w-4 h-4" />
+      default: return <Shield className="w-4 h-4" />
+    }
+  }
+
+  // 서비스 타입별 그룹화
+  const groupedProviders = {
+    analysis: sandboxProviders.filter(p => p.type === 'analysis'),
+    proxy: sandboxProviders.filter(p => p.type === 'proxy'),
+    screenshot: sandboxProviders.filter(p => p.type === 'screenshot'),
+    sandbox: sandboxProviders.filter(p => p.type === 'sandbox')
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
         <div className={`p-6 border-b flex-shrink-0 ${
           riskLevel === 'high' ? 'bg-red-50 border-red-200' : 
@@ -106,7 +138,40 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-900">브라우징 방법 선택:</h3>
             
-            {/* 옵션 1: 스크린샷 미리보기 */}
+            {/* 옵션 1: 안전한 분석/프록시 */}
+            <div 
+              className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                mode === 'isolated' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => setMode('isolated')}
+            >
+              <div className="flex items-start space-x-3">
+                <input
+                  type="radio"
+                  checked={mode === 'isolated'}
+                  onChange={() => setMode('isolated')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <Lock className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold">안전한 분석 & 프록시</h4>
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">권장</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">무료</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    보안 분석 서비스나 웹 프록시로 안전하게 확인합니다.
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500">✓ 완전 무료 서비스</p>
+                    <p className="text-xs text-gray-500">✓ 악성코드 분석 리포트</p>
+                    <p className="text-xs text-gray-500">✓ 웹 프록시로 실시간 브라우징</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 옵션 2: 스크린샷 미리보기 */}
             <div 
               className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                 mode === 'screenshot' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
@@ -124,43 +189,11 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
                   <div className="flex items-center space-x-2">
                     <Monitor className="w-5 h-5 text-blue-600" />
                     <h4 className="font-semibold">스크린샷 미리보기</h4>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">가장 안전</span>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">안전</span>
                   </div>
                   <p className="text-sm text-gray-600 mt-1">
-                    사이트의 스크린샷만 확인합니다. 악성코드 실행 위험이 전혀 없습니다.
+                    사이트의 스크린샷만 확인합니다. 악성코드 실행 위험이 없습니다.
                   </p>
-                </div>
-              </div>
-            </div>
-
-            {/* 옵션 2: 격리된 브라우저 */}
-            <div 
-              className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                mode === 'isolated' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => setMode('isolated')}
-            >
-              <div className="flex items-start space-x-3">
-                <input
-                  type="radio"
-                  checked={mode === 'isolated'}
-                  onChange={() => setMode('isolated')}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <Lock className="w-5 h-5 text-purple-600" />
-                    <h4 className="font-semibold">격리된 브라우저</h4>
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">권장</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    가상 환경에서 사이트를 탐색합니다. 악성코드가 실행되어도 안전합니다.
-                  </p>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-gray-500">✓ 새로운 가상 브라우저 환경</p>
-                    <p className="text-xs text-gray-500">✓ 다운로드 차단</p>
-                    <p className="text-xs text-gray-500">✓ 세션 종료 시 데이터 삭제</p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -195,22 +228,170 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
 
           {/* 스크린샷 미리보기 */}
           {mode === 'screenshot' && screenshot && (
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg overflow-hidden bg-gray-100 p-4">
               <img src={screenshot} alt="사이트 미리보기" className="w-full" />
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Thum.io 서비스로 생성된 스크린샷
+              </p>
             </div>
           )}
 
-          {/* 샌드박스 제공자 정보 */}
+          {/* 안전한 서비스 선택 */}
           {mode === 'isolated' && (
-            <div className="bg-blue-50 p-4 rounded-lg text-sm">
-              <p className="font-semibold text-blue-900 mb-2">🔒 격리된 브라우저 제공자</p>
-              <div className="space-y-2 text-blue-700">
-                {sandboxProviders.filter(p => p.recommended).map(provider => (
-                  <div key={provider.name}>
-                    <span className="font-medium">{provider.displayName}</span>
-                    <span className="text-xs ml-2">({provider.pricing === 'free' ? '무료' : provider.pricing === 'freemium' ? '부분 무료' : '유료'})</span>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="font-semibold text-blue-900 mb-3">🛡️ 안전한 서비스 선택</p>
+                
+                {/* 보안 분석 서비스 */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    <Search className="w-4 h-4 mr-1" /> 보안 분석 (추천)
+                  </h5>
+                  <div className="space-y-2">
+                    {groupedProviders.analysis.map(provider => (
+                      <div 
+                        key={provider.name}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          selectedProvider === provider.name 
+                            ? 'border-blue-500 bg-white shadow-md' 
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedProvider(provider.name)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <h6 className="font-semibold text-sm">{provider.displayName}</h6>
+                              {provider.recommended && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">추천</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1">{provider.description}</p>
+                          </div>
+                          {selectedProvider === provider.name ? (
+                            <CheckCircle className="w-5 h-5 text-blue-600 ml-2" />
+                          ) : (
+                            <div className="w-5 h-5 border-2 border-gray-300 rounded-full ml-2" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                {/* 웹 프록시 서비스 */}
+                <div className="mb-4">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    <Globe className="w-4 h-4 mr-1" /> 웹 프록시 (실시간 브라우징)
+                  </h5>
+                  <div className="space-y-2">
+                    {groupedProviders.proxy.map(provider => (
+                      <div 
+                        key={provider.name}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          selectedProvider === provider.name 
+                            ? 'border-blue-500 bg-white shadow-md' 
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedProvider(provider.name)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <h6 className="font-semibold text-sm">{provider.displayName}</h6>
+                              {provider.recommended && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">추천</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1">{provider.description}</p>
+                          </div>
+                          {selectedProvider === provider.name ? (
+                            <CheckCircle className="w-5 h-5 text-blue-600 ml-2" />
+                          ) : (
+                            <div className="w-5 h-5 border-2 border-gray-300 rounded-full ml-2" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 가상 브라우저 (제한적) */}
+                {groupedProviders.sandbox.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                      <Computer className="w-4 h-4 mr-1" /> 가상 브라우저 (시간 제한)
+                    </h5>
+                    <div className="space-y-2">
+                      {groupedProviders.sandbox.map(provider => (
+                        <div 
+                          key={provider.name}
+                          className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                            selectedProvider === provider.name 
+                              ? 'border-blue-500 bg-white shadow-md' 
+                              : 'border-gray-200 bg-white hover:border-gray-300'
+                          }`}
+                          onClick={() => setSelectedProvider(provider.name)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <h6 className="font-semibold text-sm">{provider.displayName}</h6>
+                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">
+                                  {provider.features[0]}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 mt-1">{provider.description}</p>
+                            </div>
+                            {selectedProvider === provider.name ? (
+                              <CheckCircle className="w-5 h-5 text-blue-600 ml-2" />
+                            ) : (
+                              <div className="w-5 h-5 border-2 border-gray-300 rounded-full ml-2" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 로컬 솔루션 안내 */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <button
+                  onClick={() => setShowLocalSolutions(!showLocalSolutions)}
+                  className="w-full flex items-center justify-between text-left"
+                >
+                  <span className="text-sm font-semibold text-gray-700">
+                    💻 더 나은 대안: 로컬 보안 솔루션
+                  </span>
+                  <ChevronRight className={`w-4 h-4 transition-transform ${showLocalSolutions ? 'rotate-90' : ''}`} />
+                </button>
+                
+                {showLocalSolutions && (
+                  <div className="mt-3 space-y-3 text-xs">
+                    <div>
+                      <h6 className="font-semibold text-gray-700 mb-1">Windows 사용자</h6>
+                      <ul className="space-y-1 text-gray-600">
+                        <li>• <strong>Windows Sandbox</strong> - Win 10/11 Pro 내장 (완전 무료)</li>
+                        <li>• <strong>Sandboxie-Plus</strong> - 오픈소스 샌드박스</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h6 className="font-semibold text-gray-700 mb-1">브라우저 솔루션</h6>
+                      <ul className="space-y-1 text-gray-600">
+                        <li>• <strong>Firefox + Container</strong> - 격리된 탭</li>
+                        <li>• <strong>Brave + Tor</strong> - 익명 브라우징</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h6 className="font-semibold text-gray-700 mb-1">가상머신</h6>
+                      <ul className="space-y-1 text-gray-600">
+                        <li>• <strong>VirtualBox</strong> - 무료 VM 소프트웨어</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -226,13 +407,15 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
             <button
               onClick={() => {
                 if (mode === 'screenshot') captureScreenshot()
-                else if (mode === 'isolated') openInSandbox()
+                else if (mode === 'isolated' && selectedProvider) openInSandbox(selectedProvider)
                 else if (mode === 'direct') openDirectly()
               }}
-              disabled={loading}
+              disabled={loading || (mode === 'isolated' && !selectedProvider)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
                 mode === 'direct' 
                   ? 'bg-red-600 hover:bg-red-700 text-white' 
+                  : mode === 'isolated' && !selectedProvider
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
@@ -249,7 +432,8 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
               ) : mode === 'isolated' ? (
                 <>
                   <Lock className="w-4 h-4" />
-                  <span>격리된 환경에서 열기</span>
+                  <span>선택한 서비스로 열기</span>
+                  {selectedProvider && <ChevronRight className="w-4 h-4" />}
                 </>
               ) : (
                 <>
@@ -262,8 +446,8 @@ export default function SafeBrowseModal({ url, riskLevel, onClose }: SafeBrowseM
 
           {/* 추가 정보 */}
           <div className="text-xs text-gray-500 text-center pt-4 border-t">
-            💡 팁: 격리된 브라우저는 클라우드 기반 가상 환경에서 실행되어 
-            악성코드로부터 완전히 안전합니다.
+            <p className="mb-2">💡 <strong>추천:</strong> URLScan.io나 VirusTotal로 먼저 분석 → 안전하면 CroxyProxy로 실시간 확인</p>
+            <p>🛡️ 최고의 보안을 원한다면 Windows Sandbox나 VirtualBox를 사용하세요.</p>
           </div>
         </div>
       </div>

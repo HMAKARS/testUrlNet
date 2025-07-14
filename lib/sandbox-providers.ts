@@ -8,156 +8,207 @@ export interface SandboxProvider {
   features: string[]
   pricing: 'free' | 'freemium' | 'paid'
   recommended: boolean
+  type: 'analysis' | 'proxy' | 'sandbox' | 'screenshot'
 }
 
 export const sandboxProviders: SandboxProvider[] = [
+  // 보안 분석 서비스 (완전 무료)
   {
-    name: 'browserling',
-    displayName: 'Browserling',
-    description: '웹 기반 브라우저 테스팅 플랫폼',
-    url: 'https://www.browserling.com/browse/win/10/chrome/120/',
+    name: 'urlscan',
+    displayName: 'URLScan.io',
+    description: '웹사이트를 안전하게 스캔하고 상세 리포트 제공',
+    url: 'https://urlscan.io/search#',
     features: [
-      '실시간 상호작용',
-      '여러 브라우저 지원',
-      '익명 브라우징',
-      '스크린샷 캡처'
+      '✅ 완전 무료',
+      '스크린샷 제공',
+      'DOM/네트워크 분석',
+      '악성코드 탐지',
+      'SSL 인증서 확인'
     ],
-    pricing: 'freemium',
-    recommended: true
+    pricing: 'free',
+    recommended: true,
+    type: 'analysis'
   },
   {
-    name: 'any-run',
-    displayName: 'Any.Run',
-    description: '악성코드 분석 샌드박스',
-    url: 'https://app.any.run/',
+    name: 'virustotal',
+    displayName: 'VirusTotal',
+    description: 'Google의 무료 멀웨어/바이러스 검사 서비스',
+    url: 'https://www.virustotal.com/gui/home/url',
     features: [
-      '상세한 행동 분석',
-      '네트워크 트래픽 모니터링',
-      '파일 시스템 변경 추적',
-      'API 호출 분석'
+      '✅ 완전 무료',
+      '70+ 안티바이러스 엔진',
+      '상세한 보안 리포트',
+      '커뮤니티 평가',
+      'URL/파일 검사'
     ],
-    pricing: 'freemium',
-    recommended: true
+    pricing: 'free',
+    recommended: true,
+    type: 'analysis'
+  },
+  
+  // 웹 프록시 서비스 (실시간 브라우징)
+  {
+    name: 'croxyproxy',
+    displayName: 'CroxyProxy',
+    description: '무료 웹 프록시로 안전하게 브라우징',
+    url: 'https://www.croxyproxy.com/',
+    features: [
+      '✅ 완전 무료',
+      '실시간 브라우징',
+      'YouTube 지원',
+      'SSL 암호화',
+      '익명 브라우징'
+    ],
+    pricing: 'free',
+    recommended: true,
+    type: 'proxy'
   },
   {
-    name: 'joesandbox',
-    displayName: 'Joe Sandbox',
-    description: '전문가용 악성코드 분석 플랫폼',
-    url: 'https://www.joesandbox.com/',
+    name: 'hideme',
+    displayName: 'Hide.me Proxy',
+    description: '무료 웹 프록시 서비스',
+    url: 'https://hide.me/en/proxy',
     features: [
-      '딥 악성코드 분석',
-      '행동 기반 탐지',
-      '상세한 보고서',
-      'API 지원'
+      '✅ 완전 무료',
+      'SSL 지원',
+      '쿠키/스크립트 차단',
+      '여러 서버 위치',
+      '광고 없음'
     ],
-    pricing: 'paid',
-    recommended: false
+    pricing: 'free',
+    recommended: false,
+    type: 'proxy'
   },
+  
+  // 스크린샷 서비스
+  {
+    name: 'thum.io',
+    displayName: 'Thum.io',
+    description: '실시간 웹사이트 스크린샷 생성',
+    url: 'https://image.thum.io/get/',
+    features: [
+      '✅ 완전 무료',
+      '즉시 스크린샷',
+      '다양한 해상도',
+      'API 제공',
+      '캐싱 지원'
+    ],
+    pricing: 'free',
+    recommended: false,
+    type: 'screenshot'
+  },
+  
+  // 하이브리드 분석
   {
     name: 'hybrid-analysis',
     displayName: 'Hybrid Analysis',
-    description: 'Falcon Sandbox 기반 무료 분석',
+    description: 'Falcon Sandbox 기반 심층 분석',
     url: 'https://www.hybrid-analysis.com/',
     features: [
-      '무료 파일 분석',
-      'URL 스캔',
-      '커뮤니티 위협 정보',
+      '✅ 완전 무료',
+      '행동 분석',
+      '네트워크 활동',
+      'API 호출 추적',
       '상세 리포트'
     ],
     pricing: 'free',
-    recommended: true
+    recommended: false,
+    type: 'analysis'
   },
+  
+  // 임시 브라우저 (제한적 무료)
   {
-    name: 'urlvoid',
-    displayName: 'URLVoid',
-    description: '다중 엔진 URL 검사',
-    url: 'https://www.urlvoid.com/',
+    name: 'browserling',
+    displayName: 'Browserling',
+    description: '실시간 가상 브라우저 (3분 무료)',
+    url: 'https://www.browserling.com/browse/win/10/chrome/120/',
     features: [
-      '30+ 보안 엔진',
-      '도메인 평판 검사',
-      'WHOIS 정보',
-      '블랙리스트 확인'
+      '⏱️ 3분 무료',
+      '실제 브라우저',
+      '다양한 OS/브라우저',
+      '완전 격리',
+      '익명 브라우징'
     ],
-    pricing: 'free',
-    recommended: false
+    pricing: 'freemium',
+    recommended: false,
+    type: 'sandbox'
   }
 ]
 
-// 브라우저 격리 API 엔드포인트
-export const isolationAPIs = {
-  // Cloudflare Browser Isolation
-  cloudflare: {
-    endpoint: 'https://api.cloudflare.com/client/v4/accounts/{account_id}/gateway/browser_isolation',
-    documentation: 'https://developers.cloudflare.com/cloudflare-one/policies/browser-isolation/'
-  },
-  
-  // Menlo Security
-  menlo: {
-    endpoint: 'https://admin.menlosecurity.com/api/v1/isolation',
-    documentation: 'https://docs.menlosecurity.com/'
-  },
-  
-  // Symantec Web Isolation
-  symantec: {
-    endpoint: 'https://portal.threatpulse.com/api/isolation',
-    documentation: 'https://support.symantec.com/en_US/article.TECH242701.html'
-  }
-}
-
-// 로컬 샌드박스 설정 (Docker 기반)
-export const dockerSandboxConfig = {
-  image: 'browserless/chrome:latest',
-  options: {
-    // 보안 설정
-    securityOpt: [
-      'no-new-privileges:true',
-      'seccomp=chrome.json'
-    ],
-    
-    // 리소스 제한
-    memory: '1g',
-    cpus: '0.5',
-    
-    // 네트워크 격리
-    networkMode: 'none',
-    
-    // 읽기 전용 파일시스템
-    readOnly: true,
-    
-    // 임시 파일시스템
-    tmpfs: {
-      '/tmp': 'rw,noexec,nosuid,size=100m',
-      '/var/run': 'rw,noexec,nosuid,size=10m'
+// 로컬 보안 솔루션 (추천)
+export const localSolutions = {
+  windows: [
+    {
+      name: 'Windows Sandbox',
+      description: 'Windows 10/11 Pro 내장 가상 환경',
+      steps: [
+        'Windows 기능 켜기/끄기 → Windows Sandbox 활성화',
+        '시작 메뉴에서 Windows Sandbox 실행',
+        '샌드박스 내에서 브라우저로 사이트 방문',
+        '종료 시 모든 데이터 자동 삭제'
+      ]
     },
-    
-    // 환경 변수
-    env: {
-      'CHROME_FLAGS': '--no-sandbox --disable-gpu --disable-dev-shm-usage --disable-setuid-sandbox',
-      'MAX_CONCURRENT_SESSIONS': '1',
-      'PREBOOT_CHROME': 'true',
-      'KEEP_ALIVE': 'false'
+    {
+      name: 'Sandboxie-Plus',
+      description: '무료 오픈소스 샌드박스 프로그램',
+      url: 'https://sandboxie-plus.com/',
+      steps: [
+        'Sandboxie-Plus 다운로드 및 설치',
+        '브라우저를 샌드박스에서 실행',
+        '격리된 환경에서 안전하게 브라우징'
+      ]
     }
-  }
+  ],
+  browser: [
+    {
+      name: 'Firefox Container',
+      description: 'Firefox의 격리된 탭 기능',
+      steps: [
+        'Firefox 설치',
+        'Multi-Account Containers 확장 프로그램 추가',
+        '임시 컨테이너에서 사이트 열기'
+      ]
+    },
+    {
+      name: 'Brave 브라우저 + Tor',
+      description: '프라이버시 중심 브라우저',
+      steps: [
+        'Brave 브라우저 설치',
+        '새 프라이빗 창 with Tor 열기',
+        '익명으로 안전하게 브라우징'
+      ]
+    }
+  ],
+  vm: [
+    {
+      name: 'VirtualBox',
+      description: '무료 가상머신 소프트웨어',
+      steps: [
+        'VirtualBox 설치',
+        '가벼운 Linux 배포판 설치 (예: Lubuntu)',
+        '스냅샷 생성 후 위험한 사이트 방문',
+        '문제 발생 시 스냅샷으로 복원'
+      ]
+    }
+  ]
 }
 
-// 스크린샷 전용 API
-export const screenshotAPIs = [
+// 브라우저 확장 프로그램 추천
+export const browserExtensions = [
   {
-    name: 'Screenshotlayer',
-    endpoint: 'https://api.screenshotlayer.com/api/capture',
-    requiresKey: true,
-    freeQuota: 100
+    name: 'uBlock Origin',
+    description: '광고/추적기/악성코드 차단'
   },
   {
-    name: 'ScreenshotAPI',
-    endpoint: 'https://shot.screenshotapi.net/screenshot',
-    requiresKey: true,
-    freeQuota: 100
+    name: 'NoScript',
+    description: 'JavaScript 실행 제어'
   },
   {
-    name: 'Microlink',
-    endpoint: 'https://api.microlink.io',
-    requiresKey: false,
-    freeQuota: 50
+    name: 'HTTPS Everywhere',
+    description: '암호화된 연결 강제'
+  },
+  {
+    name: 'Privacy Badger',
+    description: '추적기 자동 차단'
   }
 ]

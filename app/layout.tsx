@@ -1,14 +1,15 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata = {
+export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'),
   title: 'URL Safety Checker - 안전한 인터넷 브라우징',
   description: 'URL 안전성을 검사하고 위험 요소를 분석하여 안전한 인터넷 브라우징을 도와드립니다. 피싱, 멀웨어, 의심스러운 사이트를 사전에 차단하세요.',
   keywords: 'URL 검사, 사이트 안전성, 피싱 방지, 멀웨어 검사, 인터넷 보안',
   authors: [{ name: 'URL Safety Checker Team' }],
-  viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
   openGraph: {
     title: 'URL Safety Checker',
@@ -21,6 +22,11 @@ export const metadata = {
     title: 'URL Safety Checker',
     description: 'URL 안전성을 검사하고 위험 요소를 분석하는 서비스',
   }
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({
