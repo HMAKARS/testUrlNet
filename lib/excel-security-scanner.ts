@@ -383,24 +383,32 @@ export function scanExcelFile(buffer: Buffer): ExcelScanResult {
   }
 
   // 정의된 이름(Named Ranges) 검사 강화
-  if ((workbook as any).Workbook?.Names && Array.isArray((workbook as any).Workbook.Names)) {
-    const suspiciousNames: string[] = [
-      'Auto_Open', 'Auto_Close', 'Auto_Exec', 'AutoOpen', 'AutoClose', 'AutoExec',
-      'Workbook_Open', 'Workbook_Close', 'Workbook_Activate', 'Workbook_Deactivate'
-    ]
-    
-    ((workbook as any).Workbook.Names as any[]).forEach((name: any) => {
-      if (suspiciousNames.some(suspicious => 
-        name.Name?.toUpperCase().includes(suspicious.toUpperCase()))) {
-        result.securityIssues.push({
-          type: 'suspicious_pattern',
-          severity: 'critical', // high에서 critical로 상향
-          description: `의심스러운 자동 실행 이름 발견: ${name.Name}`,
-          details: '파일을 열 때 자동으로 코드가 실행될 수 있습니다'
-        })
-        result.riskScore += 10 // 7에서 10으로 상향
+  try {
+    const workbookData = workbook as any;
+    if (workbookData.Workbook && workbookData.Workbook.Names && Array.isArray(workbookData.Workbook.Names)) {
+      const autoExecPatterns = 'Auto_Open,Auto_Close,Auto_Exec,AutoOpen,AutoClose,AutoExec,Workbook_Open,Workbook_Close,Workbook_Activate,Workbook_Deactivate'.split(',');
+      
+      for (let i = 0; i < workbookData.Workbook.Names.length; i++) {
+        const nameObj = workbookData.Workbook.Names[i];
+        if (nameObj && nameObj.Name) {
+          const upperName = nameObj.Name.toUpperCase();
+          for (let j = 0; j < autoExecPatterns.length; j++) {
+            if (upperName.includes(autoExecPatterns[j].toUpperCase())) {
+              result.securityIssues.push({
+                type: 'suspicious_pattern',
+                severity: 'critical',
+                description: '의심스러운 자동 실행 이름 발견: ' + nameObj.Name,
+                details: '파일을 열 때 자동으로 코드가 실행될 수 있습니다'
+              });
+              result.riskScore += 10;
+              break;
+            }
+          }
+        }
       }
-    })
+    }
+  } catch (nameError) {
+    console.error('Error checking named ranges:', nameError);
   }
 
   // 최종 위험도 평가 (기준 강화)
