@@ -191,7 +191,7 @@ export function scanExcelFile(buffer: Buffer): ExcelScanResult {
       if (!sheet) return
       
       // 숨겨진 시트 검사
-      if (workbook.Workbook?.Sheets?.[sheetIndex]?.Hidden) {
+      if ((workbook as any).Workbook?.Sheets?.[sheetIndex]?.Hidden) {
         result.hasHiddenSheets = true
         result.securityIssues.push({
           type: 'hidden_content',
@@ -371,7 +371,7 @@ export function scanExcelFile(buffer: Buffer): ExcelScanResult {
   }
 
   // 내장 객체 검사 (강화)
-  if (workbook.Workbook?.Objects || (workbook as any).embeddings || (workbook as any).objects) {
+  if ((workbook as any).Workbook?.Objects || (workbook as any).embeddings || (workbook as any).objects) {
     result.hasEmbeddedObjects = true
     result.securityIssues.push({
       type: 'embedded_object',
@@ -383,13 +383,13 @@ export function scanExcelFile(buffer: Buffer): ExcelScanResult {
   }
 
   // 정의된 이름(Named Ranges) 검사 강화
-  if (workbook.Workbook?.Names) {
+  if ((workbook as any).Workbook?.Names) {
     const suspiciousNames = [
       'Auto_Open', 'Auto_Close', 'Auto_Exec', 'AutoOpen', 'AutoClose', 'AutoExec',
       'Workbook_Open', 'Workbook_Close', 'Workbook_Activate', 'Workbook_Deactivate'
     ]
     
-    workbook.Workbook.Names.forEach((name: any) => {
+    (workbook as any).Workbook.Names.forEach((name: any) => {
       if (suspiciousNames.some(suspicious => 
         name.Name?.toUpperCase().includes(suspicious.toUpperCase()))) {
         result.securityIssues.push({
