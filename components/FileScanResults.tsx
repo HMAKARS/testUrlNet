@@ -1,6 +1,7 @@
 'use client'
 
-import { Shield, AlertTriangle, CheckCircle, FileText, Hash, Calendar, FileArchive, Bug, ShieldAlert } from 'lucide-react'
+import { Shield, AlertTriangle, CheckCircle, FileText, Hash, Calendar, FileArchive, Bug, ShieldAlert, FileSpreadsheet, Eye, Link, Code, Package } from 'lucide-react'
+import { ExcelScanResult } from '@/lib/excel-security-scanner'
 
 export interface FileScanResult {
   filename: string
@@ -15,7 +16,7 @@ export interface FileScanResult {
   scanTime: number
   malwareDetected: boolean
   suspiciousPatterns: string[]
-  riskLevel: 'low' | 'medium' | 'high'
+  riskLevel: 'low' | 'medium' | 'high' | 'critical'
   riskScore: number
   isArchive: boolean
   archiveContents?: FileScanResult[]
@@ -30,6 +31,9 @@ export interface FileScanResult {
     method: string
     findings: string[]
   }
+  // 엑셀 파일 전용 필드
+  isExcelFile?: boolean
+  excelScanResult?: ExcelScanResult
 }
 
 interface FileScanResultsProps {
@@ -42,6 +46,7 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
       case 'low': return 'text-green-600'
       case 'medium': return 'text-yellow-600'
       case 'high': return 'text-red-600'
+      case 'critical': return 'text-red-800'
       default: return 'text-gray-600'
     }
   }
@@ -51,6 +56,7 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
       case 'low': return 'bg-green-50 border-green-200'
       case 'medium': return 'bg-yellow-50 border-yellow-200'
       case 'high': return 'bg-red-50 border-red-200'
+      case 'critical': return 'bg-red-100 border-red-400'
       default: return 'bg-gray-50 border-gray-200'
     }
   }
@@ -60,6 +66,7 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
       case 'low': return <CheckCircle className="w-5 h-5 text-green-600" />
       case 'medium': return <AlertTriangle className="w-5 h-5 text-yellow-600" />
       case 'high': return <ShieldAlert className="w-5 h-5 text-red-600" />
+      case 'critical': return <Bug className="w-5 h-5 text-red-800" />
       default: return <Shield className="w-5 h-5 text-gray-600" />
     }
   }
@@ -91,7 +98,9 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
           {/* 파일 기본 정보 */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              {result.isArchive ? (
+              {result.isExcelFile ? (
+                <FileSpreadsheet className="w-6 h-6 text-green-600" />
+              ) : result.isArchive ? (
                 <FileArchive className="w-6 h-6 text-yellow-600" />
               ) : (
                 <FileText className="w-6 h-6 text-blue-600" />
@@ -108,7 +117,8 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
               <div className="text-right">
                 <span className={`font-semibold ${getRiskColor(result.riskLevel)}`}>
                   위험도: {result.riskLevel === 'low' ? '낮음' : 
-                          result.riskLevel === 'medium' ? '보통' : '높음'}
+                          result.riskLevel === 'medium' ? '보통' : 
+                          result.riskLevel === 'high' ? '높음' : '매우 높음'}
                 </span>
                 <p className="text-xs text-gray-500">점수: {result.riskScore}/10</p>
               </div>
@@ -160,6 +170,110 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
                     {finding}
                   </p>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 엑셀 파일 보안 검사 결과 */}
+          {result.isExcelFile && result.excelScanResult && (
+            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-emerald-900 mb-3 flex items-center">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                엑셀 파일 보안 검사 결과
+              </h4>
+              
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="flex items-center space-x-2">
+                  <Code className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm">
+                    VBA 매크로: {result.excelScanResult.hasVBAMacros ? (
+                      <span className="text-red-600 font-semibold">포함됨</span>
+                    ) : (
+                      <span className="text-green-600">없음</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Link className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm">
+                    외부 링크: {result.excelScanResult.hasExternalLinks ? (
+                      <span className="text-yellow-600 font-semibold">{result.excelScanResult.externalLinkCount}개</span>
+                    ) : (
+                      <span className="text-green-600">없음</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Eye className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm">
+                    숨겨진 시트: {result.excelScanResult.hasHiddenSheets ? (
+                      <span className="text-yellow-600 font-semibold">있음</span>
+                    ) : (
+                      <span className="text-green-600">없음</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Package className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm">
+                    내장 객체: {result.excelScanResult.hasEmbeddedObjects ? (
+                      <span className="text-yellow-600 font-semibold">포함됨</span>
+                    ) : (
+                      <span className="text-green-600">없음</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+              
+              {result.excelScanResult.hasDDEFormulas && (
+                <div className="p-2 bg-red-100 border border-red-300 rounded mb-3">
+                  <p className="text-sm text-red-700 font-semibold">😨 DDE 공격 패턴 감지!</p>
+                  <p className="text-xs text-red-600 mt-1">이 파일은 시스템 명령을 실행할 수 있는 위험한 수식을 포함하고 있습니다.</p>
+                </div>
+              )}
+              
+              {result.excelScanResult.securityIssues.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-emerald-800">보안 이슈 상세:</p>
+                  {result.excelScanResult.securityIssues.map((issue, idx) => (
+                    <div key={idx} className="p-2 bg-white border border-emerald-200 rounded">
+                      <div className="flex items-start space-x-2">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          issue.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                          issue.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                          issue.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {issue.severity === 'critical' ? '치명적' :
+                           issue.severity === 'high' ? '높음' :
+                           issue.severity === 'medium' ? '보통' : '낮음'}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-800">{issue.description}</p>
+                          {issue.location && (
+                            <p className="text-xs text-gray-600 mt-1">📍 위치: {issue.location}</p>
+                          )}
+                          {issue.details && (
+                            <p className="text-xs text-gray-600 mt-1">{issue.details}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="mt-3 p-2 bg-emerald-100 rounded">
+                <p className="text-xs text-emerald-800">
+                  📋 시트 수: {result.excelScanResult.sheetCount}개 | 
+                  🗞️ 수식: {result.excelScanResult.formulaCount}개 | 
+                  🌐 위험도: <span className={`font-semibold ${
+                    result.excelScanResult.riskLevel === 'critical' ? 'text-red-800' :
+                    result.excelScanResult.riskLevel === 'high' ? 'text-red-600' :
+                    result.excelScanResult.riskLevel === 'medium' ? 'text-yellow-600' :
+                    'text-green-600'
+                  }`}>{result.excelScanResult.riskLevel}</span>
+                </p>
               </div>
             </div>
           )}
@@ -232,7 +346,11 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
                   <div key={contentIdx} className="p-2 bg-white rounded border border-gray-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <FileText className="w-4 h-4 text-gray-500" />
+                        {content.isExcelFile ? (
+                          <FileSpreadsheet className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-gray-500" />
+                        )}
                         <span className="text-sm text-gray-900">{content.filename}</span>
                         <span className="text-xs text-gray-500">({formatFileSize(content.fileSize)})</span>
                       </div>
@@ -240,7 +358,8 @@ export default function FileScanResults({ results, loading = false }: FileScanRe
                         {getRiskIcon(content.riskLevel)}
                         <span className={`text-xs ${getRiskColor(content.riskLevel)}`}>
                           {content.riskLevel === 'low' ? '안전' : 
-                           content.riskLevel === 'medium' ? '주의' : '위험'}
+                           content.riskLevel === 'medium' ? '주의' : 
+                           content.riskLevel === 'high' ? '위험' : '매우 위험'}
                         </span>
                       </div>
                     </div>

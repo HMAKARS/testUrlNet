@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { promises as fs } from 'fs'
 import path from 'path'
 import os from 'os'
+import { scanExcelFile, generateExcelRecommendations, ExcelScanResult } from '@/lib/excel-security-scanner'
 
 // 파일 스캔 결과 타입
 interface FileScanResult {
@@ -18,7 +19,7 @@ interface FileScanResult {
   scanTime: number
   malwareDetected: boolean
   suspiciousPatterns: string[]
-  riskLevel: 'low' | 'medium' | 'high'
+  riskLevel: 'low' | 'medium' | 'high' | 'critical'
   riskScore: number
   isArchive: boolean
   archiveContents?: FileScanResult[]
@@ -33,6 +34,9 @@ interface FileScanResult {
     method: string
     findings: string[]
   }
+  // 엑셀 파일 전용 필드
+  isExcelFile?: boolean
+  excelScanResult?: ExcelScanResult
 }
 // 의심스러운 파일 확장자
 const SUSPICIOUS_EXTENSIONS = [
@@ -54,24 +58,71 @@ const SUSPICIOUS_FILENAME_PATTERNS = [
   /^\..*\.(exe|scr|bat|cmd|com|pif|vbs|js)$/i, // 숨김 파일
 ]
 
-// 알려진 악성코드 시그니처 (예시)
-const MALWARE_SIGNATURES = [
-  {
-    signature: 'This program cannot be run in DOS mode',
-    description: 'Windows 실행 파일의 DOS 스텁',
-    risk: 'high'
-  },
-  {
-    signature: 'MZ',
-    description: 'PE(Windows 실행파일) 헤더 - ZIP 내부에 실행 파일이 숨겨져 있을 수 있음',
-    risk: 'high'
-  },
-  {
-    signature: '4D5A',
-    description: 'PE 파일 헤더 (16진수) - Windows 실행 파일',
-    risk: 'high'
-  }
+// 알려진 문서/이미지 확장자 (위장에 자주 사용되는 것들)
+const DECOY_EXTENSIONS = [
+  // 문서 파일
+  'doc', 'docx', 'pdf', 'txt', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx',
+  'odt', 'ods', 'odp', 'pages', 'numbers', 'key',
+  
+  // 이미지 파일  
+  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'ico', 'tiff', 'tif',
+  
+  // 미디어 파일
+  'mp3', 'mp4', 'avi', 'mov', 'wav', 'flv', 'wmv', 'mkv',
+  
+  // 압축 파일
+  'zip', 'rar', '7z', 'tar', 'gz'
 ]
+
+// 알려진 확장자인지 확인 (4글자 이하, 영문자/숫자만)
+function isValidExtension(ext: string): boolean {
+  if (!ext || ext.length === 0) return false
+  if (ext.length > 4) return false // 대부분의 확장자는 4글자 이하
+  
+  // 영문자와 숫자만 포함하는지 확인
+  const validExtPattern = /^[a-zA-Z0-9]+$/
+  return validExtPattern.test(ext)
+}
+
+// 개선된 이중 확장자 검사
+function checkDoubleExtension(filename: string): string[] {
+  const patterns: string[] = []
+  const nameParts = filename.split('.')
+  
+  // .이 2개 이상 있어야 함 (최소한 name.ext1.ext2 형태)
+  if (nameParts.length < 3) return patterns
+  
+  // 마지막 확장자 (실제 파일 타입)
+  const lastExt = nameParts[nameParts.length - 1].toLowerCase()
+  
+  // 마지막 확장자가 유효한 확장자가 아니면 이중 확장자가 아님
+  if (!isValidExtension(lastExt)) {
+    return patterns
+  }
+  
+  // 마지막에서 두 번째 확장자
+  const secondLastExt = nameParts[nameParts.length - 2].toLowerCase()
+  
+  // 두 번째 확장자도 유효한 확장자여야 함
+  if (!isValidExtension(secondLastExt)) {
+    return patterns
+  }
+  
+  // 실제 위험한 패턴인지 확인
+  const isDangerous = SUSPICIOUS_EXTENSIONS.includes(lastExt)
+  const isDecoy = DECOY_EXTENSIONS.includes(secondLastExt)
+  
+  if (isDangerous && isDecoy) {
+    // 진짜 위험한 이중 확장자 (문서로 위장한 실행파일)
+    patterns.push(`⚠️ 위험한 이중 확장자 감지 (.${secondLastExt}.${lastExt}): ${getExtensionDescription(secondLastExt)}로 위장한 ${getExtensionDescription(lastExt)}`)
+  } else if (isDangerous && nameParts.length > 3) {
+    // 여러 개의 확장자가 있는 실행파일 (더 의심스러움)
+    const allExts = nameParts.slice(1).join('.')
+    patterns.push(`⚠️ 다중 확장자 실행파일 감지 (.${allExts}): 파일 형식을 숨기려는 시도일 가능성`)
+  }
+  
+  return patterns
+}
 // 파일 해시 계산
 function calculateFileHash(buffer: Buffer): { md5: string; sha1: string; sha256: string } {
   return {
@@ -106,7 +157,7 @@ function guessMimeType(filename: string): string {
   }
   return mimeTypes[ext] || 'application/octet-stream'
 }
-// 의심스러운 패턴 검사
+// 강화된 의심스러운 패턴 검사
 function checkSuspiciousPatterns(filename: string, buffer: Buffer): string[] {
   const patterns: string[] = []
   const ext = path.extname(filename).toLowerCase().slice(1)
@@ -124,21 +175,29 @@ function checkSuspiciousPatterns(filename: string, buffer: Buffer): string[] {
     }
   }
   
-  // 이중 확장자 검사
-  const nameParts = filename.split('.')
-  if (nameParts.length > 2) {
-    const exts = nameParts.slice(1).join('.')
-    patterns.push(`이중 확장자 감지 (${exts}): 파일 형식을 숨기려는 시도일 수 있음`)
-  }
+  // 개선된 이중 확장자 검사
+  const doubleExtPatterns = checkDoubleExtension(filename)
+  patterns.push(...doubleExtPatterns)
   
-  // PE 헤더 검사 (Windows 실행 파일)
-  if (buffer.length >= 2) {
+  // PE 헤더 검사 (Windows 실행 파일) - 강화된 버전
+  if (buffer.length >= 64) { // PE 헤더 검사를 위해 더 많은 바이트 확인
     const header = buffer.toString('ascii', 0, 2)
     const hexHeader = buffer.toString('hex', 0, 2).toUpperCase()
     
     if (header === 'MZ' || hexHeader === '4D5A') {
       // PE 헤더가 발견된 경우 추가 분석
       let description = 'Windows PE 실행 파일 구조 발견'
+      
+      // DOS 헤더 내의 PE 헤더 오프셋 확인
+      if (buffer.length >= 60) {
+        const peOffset = buffer.readUInt32LE(60)
+        if (peOffset < buffer.length - 4) {
+          const peSignature = buffer.toString('ascii', peOffset, peOffset + 4)
+          if (peSignature === 'PE\0\0') {
+            description += ' (유효한 PE 구조 확인됨)'
+          }
+        }
+      }
       
       // ZIP 파일인데 PE 헤더가 있는 경우
       if (ext === 'zip') {
@@ -154,18 +213,71 @@ function checkSuspiciousPatterns(filename: string, buffer: Buffer): string[] {
     }
   }
   
-  // ZIP 파일 시그니처 검사
+  // ZIP 파일 시그니처 검사 강화
   if (ext === 'zip' && buffer.length >= 4) {
     const zipSignature = buffer.toString('hex', 0, 4).toUpperCase()
-    if (zipSignature !== '504B0304' && zipSignature !== '504B0506' && zipSignature !== '504B0708') {
-      patterns.push('⚠️ 정상적인 ZIP 파일 구조가 아님 - 다른 파일 형식일 가능성')
+    const validZipSignatures = ['504B0304', '504B0506', '504B0708']
+    
+    if (!validZipSignatures.includes(zipSignature)) {
+      // 추가로 다른 압축 파일 형식인지 확인
+      if (zipSignature === '52617221') { // RAR
+        patterns.push('⚠️ ZIP이 아닌 RAR 파일입니다 - 확장자가 잘못되었습니다')
+      } else if (zipSignature === '377ABCAF') { // 7z
+        patterns.push('⚠️ ZIP이 아닌 7-Zip 파일입니다 - 확장자가 잘못되었습니다')
+      } else {
+        patterns.push('⚠️ 정상적인 ZIP 파일 구조가 아님 - 다른 파일 형식이거나 손상되었을 가능성')
+      }
     }
   }
   
-  // DOS 스텁 메시지 검사
-  const fileContent = buffer.toString('utf8', 0, Math.min(1000, buffer.length))
+  // 엑셀 파일 시그니처 검사
+  if ((ext === 'xlsx' || ext === 'xls') && buffer.length >= 8) {
+    const signature = buffer.toString('hex', 0, 8).toUpperCase()
+    
+    // XLSX는 ZIP 기반이므로 ZIP 시그니처가 있어야 함
+    if (ext === 'xlsx' && !signature.startsWith('504B')) {
+      patterns.push('⚠️ XLSX 파일이지만 올바른 파일 구조가 아닙니다')
+    }
+    
+    // XLS는 OLE2 형식이므로 특정 시그니처가 있어야 함
+    if (ext === 'xls' && !signature.startsWith('D0CF11E0')) {
+      patterns.push('⚠️ XLS 파일이지만 올바른 파일 구조가 아닙니다')
+    }
+  }
+  
+  // DOS 스텁 메시지 검사 강화
+  const fileContent = buffer.toString('utf8', 0, Math.min(2000, buffer.length)) // 더 많은 바이트 검사
   if (fileContent.includes('This program cannot be run in DOS mode')) {
     patterns.push('DOS 실행 불가 메시지 발견 - Windows 실행 파일의 특징')
+  }
+  
+  // 추가 실행 파일 패턴 검사
+  if (fileContent.includes('!This program requires Microsoft Windows') ||
+      fileContent.includes('kernel32.dll') ||
+      fileContent.includes('LoadLibrary') ||
+      fileContent.includes('GetProcAddress')) {
+    patterns.push('Windows API 참조 발견 - 실행 파일일 가능성 높음')
+  }
+  
+  // 스크립트 패턴 검사
+  const textContent = buffer.toString('utf8', 0, Math.min(1000, buffer.length))
+  const scriptPatterns = [
+    /powershell/i,
+    /cmd\.exe/i,
+    /system32/i,
+    /eval\(/i,
+    /exec\(/i,
+    /shell_exec/i,
+    /<script[^>]*>/i,
+    /document\.write/i,
+    /innerHTML/i
+  ]
+  
+  for (const pattern of scriptPatterns) {
+    if (pattern.test(textContent)) {
+      patterns.push(`스크립트 패턴 발견: ${pattern.source} - 코드 실행 가능성`)
+      break
+    }
   }
   
   // ZIP 파일 내부에 있는 파일의 경우 추가 경고
@@ -195,33 +307,62 @@ function getExtensionDescription(ext: string): string {
   }
   return descriptions[ext] || '실행 가능한 파일'
 }
-// 위험도 계산
-function calculateRiskLevel(patterns: string[], malwareDetected: boolean): { level: 'low' | 'medium' | 'high'; score: number } {
+// 강화된 위험도 계산
+function calculateRiskLevel(patterns: string[], malwareDetected: boolean, isExcelFile: boolean = false, excelRiskLevel?: string): { level: 'low' | 'medium' | 'high' | 'critical'; score: number } {
   let score = 0
   
-  if (malwareDetected) score += 10
+  if (malwareDetected) score += 15 // 10에서 15로 상향
   
-  // 패턴별 가중치
+  // 패턴별 가중치 강화
   for (const pattern of patterns) {
-    if (pattern.includes('PE(Windows 실행파일) 헤더')) score += 8
-    else if (pattern.includes('압축 파일 내부에 숨겨진 실행 파일')) score += 7
-    else if (pattern.includes('위험한 확장자')) score += 5
-    else if (pattern.includes('이중 확장자')) score += 6
-    else if (pattern.includes('의심스러운 파일명 패턴')) score += 4
-    else if (pattern.includes('Windows 실행 파일의 DOS 스텁')) score += 8
-    else score += 2
+    if (pattern.includes('PE(Windows 실행파일) 헤더') || pattern.includes('Windows PE 실행 파일 구조')) {
+      score += 10 // 8에서 10으로 상향
+    } else if (pattern.includes('압축 파일 내부에 숨겨진 실행 파일')) {
+      score += 8 // 7에서 8로 상향
+    } else if (pattern.includes('확장자를 위조한 실행 파일')) {
+      score += 12 // 새로 추가
+    } else if (pattern.includes('위험한 확장자')) {
+      score += 6 // 5에서 6으로 상향
+    } else if (pattern.includes('이중 확장자')) {
+      score += 7 // 6에서 7로 상향
+    } else if (pattern.includes('의심스러운 파일명 패턴')) {
+      score += 5 // 4에서 5로 상향
+    } else if (pattern.includes('Windows API 참조')) {
+      score += 8 // 새로 추가
+    } else if (pattern.includes('스크립트 패턴')) {
+      score += 6 // 새로 추가
+    } else if (pattern.includes('DOS 실행 불가 메시지')) {
+      score += 9 // 8에서 9로 상향
+    } else {
+      score += 3 // 2에서 3으로 상향
+    }
   }
   
-  const level = score >= 8 ? 'high' : score >= 4 ? 'medium' : 'low'
+  // 엑셀 파일의 경우 별도 위험도 고려
+  if (isExcelFile && excelRiskLevel) {
+    if (excelRiskLevel === 'critical') score += 15
+    else if (excelRiskLevel === 'high') score += 10
+    else if (excelRiskLevel === 'medium') score += 5
+    else if (excelRiskLevel === 'low') score += 2
+  }
   
-  return { level, score: Math.min(10, score) }
+  // 강화된 기준
+  const level = score >= 15 ? 'critical' : score >= 10 ? 'high' : score >= 5 ? 'medium' : 'low'
+  
+  return { level, score: Math.min(20, score) } // 최대 점수 20으로 상향
 }
 
 // 권장사항 생성
 function generateRecommendations(result: Partial<FileScanResult>): string[] {
   const recommendations: string[] = []
   
-  if (result.riskLevel === 'high') {
+  if (result.riskLevel === 'critical') {
+    recommendations.push('😨 이 파일은 매우 위험합니다. 절대 실행하지 마세요.')
+    recommendations.push('🛡️ 신뢰할 수 있는 출처가 확실하지 않다면 파일을 삭제하세요.')
+    if (result.malwareDetected) {
+      recommendations.push('🛡️ 백신 프로그램으로 정밀 검사를 수행하세요.')
+    }
+  } else if (result.riskLevel === 'high') {
     recommendations.push('⚠️ 이 파일은 여러 위험 지표가 발견되었습니다. 실행하지 마세요.')
     recommendations.push('💡 파일의 출처를 확인하고, 신뢰할 수 있는 곳에서 다시 다운로드하세요.')
     if (result.malwareDetected) {
@@ -267,7 +408,7 @@ async function scanFile(
   const ext = path.extname(filename).toLowerCase().slice(1)
   const suspiciousPatterns = checkSuspiciousPatterns(filename, buffer)
   
-  // 악성코드 판단 기준 강화
+  // 강화된 악성코드 판단 기준
   let malwareDetected = false
   const malwareIndicators = []
   
@@ -277,8 +418,8 @@ async function scanFile(
     malwareIndicators.push('이중 확장자를 사용한 실행 파일')
   }
   
-  // 2. 문서로 위장한 실행 파일
-  if (suspiciousPatterns.some(p => p.includes('위장한 실행 파일'))) {
+  // 2. 문서로 위장한 실행 파일 (강화)
+  if (suspiciousPatterns.some(p => p.includes('위장한 실행 파일') || p.includes('확장자를 위조한'))) {
     malwareIndicators.push('문서 파일로 위장')
   }
   
@@ -288,10 +429,33 @@ async function scanFile(
     malwareIndicators.push('의심스러운 파일명 사용')
   }
   
-  // 3개 이상의 지표가 있을 때만 악성코드로 판단
-  malwareDetected = malwareIndicators.length >= 2
+  // 4. Windows API 참조 + 비실행 파일 확장자 (새로 추가)
+  if (suspiciousPatterns.some(p => p.includes('Windows API 참조')) && 
+      !SUSPICIOUS_EXTENSIONS.includes(ext)) {
+    malwareIndicators.push('비실행 파일에서 Windows API 참조')
+  }
   
-  const { level, score } = calculateRiskLevel(suspiciousPatterns, malwareDetected)
+  // 5. 스크립트 패턴 + 비스크립트 파일 (새로 추가)
+  if (suspiciousPatterns.some(p => p.includes('스크립트 패턴')) && 
+      !['js', 'vbs', 'ps1', 'bat', 'cmd', 'html', 'htm'].includes(ext)) {
+    malwareIndicators.push('비스크립트 파일에서 스크립트 코드')
+  }
+  
+  // 6. ZIP 파일인데 PE 헤더 (새로 추가)
+  if (suspiciousPatterns.some(p => p.includes('ZIP 파일 헤더 대신 실행 파일 헤더'))) {
+    malwareIndicators.push('ZIP으로 위장한 실행 파일')
+  }
+  
+  // 기준 완화: 1개 이상의 강력한 지표 또는 2개 이상의 일반 지표
+  const strongIndicators = malwareIndicators.filter(indicator => 
+    indicator.includes('위장') || 
+    indicator.includes('위조') ||
+    indicator.includes('ZIP으로 위장')
+  )
+  
+  malwareDetected = strongIndicators.length >= 1 || malwareIndicators.length >= 2
+  
+  const { level, score } = calculateRiskLevel(suspiciousPatterns, malwareDetected, false)
   
   const result: FileScanResult = {
     filename,
@@ -327,8 +491,75 @@ async function scanFile(
     }
   }
   
-  // 권장사항 추가
+  // 엑셀 파일 보안 검사
+  if (ext === 'xls' || ext === 'xlsx') {
+    console.log('Excel file detected:', filename)
+    result.isExcelFile = true
+    
+    try {
+      console.log('Starting Excel security scan...')
+      const excelScanResult = scanExcelFile(buffer)
+      console.log('Excel scan result:', excelScanResult)
+      result.excelScanResult = excelScanResult
+      
+      // 엑셀 파일의 위험 요소를 suspiciousPatterns에 추가 (강화됨)
+      if (excelScanResult.hasVBAMacros) {
+        suspiciousPatterns.push('📦 VBA 매크로 포함 - 악성 코드 실행 가능')
+      }
+      if (excelScanResult.hasDDEFormulas) {
+        suspiciousPatterns.push('😨 DDE 공격 패턴 감지 - 극도로 위험한 수식')
+      }
+      if (excelScanResult.hasCommandInjection) {
+        suspiciousPatterns.push('💀 명령어 주입 패턴 감지 - 시스템 명령 실행 시도')
+      }
+      if (excelScanResult.hasExternalLinks) {
+        suspiciousPatterns.push('🔗 외부 링크 포함 - 외부 데이터 연결')
+      }
+      if (excelScanResult.hasHiddenSheets) {
+        suspiciousPatterns.push('👁️ 숨겨진 시트 발견')
+      }
+      if (excelScanResult.hasEmbeddedObjects) {
+        suspiciousPatterns.push('📎 내장된 객체 포함')
+      }
+      
+      // 엑셀 보안 검사 결과를 스캔 상세 정보에 추가
+      if (result.scanDetails) {
+        result.scanDetails.findings.push(`엑셀 파일 보안 검사 완료`)
+        result.scanDetails.findings.push(`시트 수: ${excelScanResult.sheetCount}개`)
+        if (excelScanResult.formulaCount > 0) {
+          result.scanDetails.findings.push(`수식 수: ${excelScanResult.formulaCount}개 검사됨`)
+        }
+        if (excelScanResult.securityIssues.length > 0) {
+          result.scanDetails.findings.push(`보안 이슈 ${excelScanResult.securityIssues.length}개 발견`)
+        }
+      }
+      
+      // 엑셀 파일의 위험도를 고려하여 전체 위험도 재계산
+      const excelRiskAdjustment = calculateRiskLevel(suspiciousPatterns, malwareDetected || excelScanResult.riskLevel === 'critical', true, excelScanResult.riskLevel)
+      result.riskLevel = excelRiskAdjustment.level
+      result.riskScore = excelRiskAdjustment.score
+      
+      // 엑셀 공격 패턴이 발견되면 악성코드로 표시 (기준 강화)
+      if (excelScanResult.hasDDEFormulas || 
+          excelScanResult.hasCommandInjection || 
+          (excelScanResult.hasVBAMacros && excelScanResult.riskLevel === 'critical') ||
+          (excelScanResult.hasVBAMacros && excelScanResult.hasExternalLinks && excelScanResult.hasHiddenSheets)) {
+        result.malwareDetected = true
+      }
+    } catch (error) {
+      console.error('Excel scan error:', error)
+      suspiciousPatterns.push('엑셀 파일 스캔 실패')
+    }
+  }
+  
+  // 권장사항 생성
   result.recommendations = generateRecommendations(result)
+  
+  // 엑셀 파일인 경우 추가 권장사항
+  if (result.isExcelFile && result.excelScanResult) {
+    const excelRecommendations = generateExcelRecommendations(result.excelScanResult)
+    result.recommendations = [...result.recommendations, ...excelRecommendations]
+  }
   // VirusTotal API 연동 (실제 구현시 API 키 필요)
   if (checkWithVirusTotal && process.env.VIRUSTOTAL_API_KEY) {
     // 실제 구현시 VirusTotal API 호출
@@ -369,6 +600,12 @@ async function scanArchiveContents(buffer: Buffer): Promise<FileScanResult[]> {
           
           const entryData = entry.getData()
           const result = await scanFile(filename, entryData, false)
+          
+          // 압축 파일 내부의 엑셀 파일도 검사했음을 표시
+          if (result.isExcelFile) {
+            console.log(`Excel file found in archive: ${filename}`)
+          }
+          
           results.push(result)
         } catch (error) {
           console.error(`Error scanning ${entry.entryName}:`, error)
