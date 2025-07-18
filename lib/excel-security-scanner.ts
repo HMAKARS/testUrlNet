@@ -383,13 +383,13 @@ export function scanExcelFile(buffer: Buffer): ExcelScanResult {
   }
 
   // 정의된 이름(Named Ranges) 검사 강화
-  if ((workbook as any).Workbook?.Names) {
-    const suspiciousNames = [
+  if ((workbook as any).Workbook?.Names && Array.isArray((workbook as any).Workbook.Names)) {
+    const suspiciousNames: string[] = [
       'Auto_Open', 'Auto_Close', 'Auto_Exec', 'AutoOpen', 'AutoClose', 'AutoExec',
       'Workbook_Open', 'Workbook_Close', 'Workbook_Activate', 'Workbook_Deactivate'
     ]
     
-    (workbook as any).Workbook.Names.forEach((name: any) => {
+    ((workbook as any).Workbook.Names as any[]).forEach((name: any) => {
       if (suspiciousNames.some(suspicious => 
         name.Name?.toUpperCase().includes(suspicious.toUpperCase()))) {
         result.securityIssues.push({
